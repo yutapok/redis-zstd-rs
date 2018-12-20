@@ -181,6 +181,10 @@ pub fn string_set(key: *mut RedisModuleKey, str: *mut RedisModuleString) -> Stat
     unsafe { RedisModule_StringSet(key, str) }
 }
 
+pub fn string_zstd_set(ctx: *mut RedisModuleCtx, key: *mut RedisModuleKey, ptr: *const u8) -> Status {
+    unsafe { Custom_RedisModule_ZstdStringSet(ctx, key ,ptr) }
+}
+
 // Redis doesn't make this easy for us by exporting a library, so instead what
 // we do is bake redismodule.h's symbols into a library of our construction
 // during build and link against that. See build.rs for details.
@@ -193,6 +197,7 @@ extern "C" {
         module_version: c_int,
         api_version: c_int,
     ) -> Status;
+
 
     static RedisModule_CallReplyType:
         extern "C" fn(reply: *mut RedisModuleCallReply) -> ReplyType;
@@ -268,7 +273,21 @@ extern "C" {
         fmt: *const u8,
         args: *const *mut RedisModuleString,
     ) -> *mut RedisModuleCallReply;
+
 }
+
+//custom module
+#[allow(improper_ctypes)]
+#[link(name = "rmod_custom",kind = "static")]
+extern "C" {
+    //Costom RedisModule
+    pub fn Custom_RedisModule_ZstdStringSet(
+        ctx: *mut RedisModuleCtx, 
+        key: *mut RedisModuleKey, 
+        str: *const u8
+    ) -> Status;
+}
+
 
 pub mod call1 {
     use redis::raw;

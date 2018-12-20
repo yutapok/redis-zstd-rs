@@ -344,6 +344,16 @@ impl RedisKeyWritable {
             raw::Status::Err => Err(error!("Error while setting key")),
         }
     }
+
+    pub fn write_zstd_comp(&self, val: &str) -> Result<(), CellError> {
+        match raw::string_zstd_set(
+            self.ctx,
+            self.key_inner,
+            format!("{}\0", val).as_ptr()) {
+                raw::Status::Ok => Ok(()),
+                raw::Status::Err => Err(error!("Error while setting key expire")),
+        }
+    }
 }
 
 impl Drop for RedisKeyWritable {

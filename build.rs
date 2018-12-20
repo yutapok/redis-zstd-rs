@@ -11,5 +11,12 @@ fn main() {
         .file("src/redismodule.c")
         .include("include/")
         .compile("libredismodule.a");
+
+    gcc::Build::new()
+        .file("src/rmod_custom.c")
+        .include("include/")
+        .flag("-lzstd")
+        .compile("librmod_custom.a");
+
     // The GCC module emits `rustc-link-lib=static=redismodule` for us.
 }

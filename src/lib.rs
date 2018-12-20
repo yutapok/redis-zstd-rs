@@ -7,12 +7,10 @@ extern crate zstd;
 #[macro_use]
 mod macros;
 
-pub mod cell;
 pub mod error;
 mod redis;
 
 use std::str;
-use cell::store;
 use error::CellError;
 use libc::c_int;
 use redis::Command;
@@ -41,12 +39,6 @@ impl Command for ZstdGetCommand {
 
         let key = args[1];
 
-        let zval = r.open_key(key).read().unwrap().unwrap();
-        let zvec = zval.as_bytes();
-        let decomp = zstd::block::decompress(&zvec,100).unwrap();
-        let decompstr = String::from_utf8(decomp).unwrap();
-        r.reply_string(&decompstr);
-
         Ok(())
     }
     fn str_flags(&self) -> &'static str {
@@ -73,12 +65,8 @@ impl Command for ZstdSetCommand {
         let key = args[1];
         let val = args[2];
 
-        let ustr = val.as_bytes();
-        let zval = zstd::encode_all(ustr,3).unwrap();
-        let vec = zval.iter().map(|&s| s as u16).collect::<Vec<u16>>();
-        let vstr = String::from_utf16(&vec.to_vec()).unwrap();
-        r.open_key_writable(key).write(&vstr);
-        r.reply_string(&vstr);
+        r.open_key_writable(key).write_zstd_comp(val).unwrap();
+        r.reply_string(&val);
 
         Ok(())
     }
