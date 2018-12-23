@@ -146,8 +146,7 @@ impl Redis {
         reply_res
     }
 
-    /// Coerces a Redis string as an integer.
-    ///
+    /// Coerces a Redis string as an integer.size_t///
     /// Redis is pretty dumb about data types. It nominally supports strings
     /// versus integers, but an integer set in the store will continue to look
     /// like a string (i.e. "1234") until some other operation like INCR forces
@@ -272,6 +271,15 @@ impl RedisKey {
         };
         Ok(val)
     }
+
+    pub fn read_zstd_decompress_str(&self) -> Result<Option<String>, CellError> {
+        let val = if self.is_null() {
+            None
+        } else {
+            Some(read_key_zstd(self.key_inner)?)
+        };
+        Ok(val)
+    }
 }
 
 impl Drop for RedisKey {
@@ -346,12 +354,10 @@ impl RedisKeyWritable {
     }
 
     pub fn write_zstd_comp(&self, val: &str) -> Result<(), CellError> {
-        match raw::string_zstd_set(
-            self.ctx,
-            self.key_inner,
-            format!("{}\0", val).as_ptr()) {
-                raw::Status::Ok => Ok(()),
-                raw::Status::Err => Err(error!("Error while setting key expire")),
+        let zval_str = RedisString::create_zstd(self.ctx,val); 
+        match raw::string_set(self.key_inner, zval_str.str_inner) {
+            raw::Status::Ok => Ok(()),
+            raw::Status::Err => Err(error!("Error while setting key")),
         }
     }
 }
@@ -380,6 +386,11 @@ impl RedisString {
     fn create(ctx: *mut raw::RedisModuleCtx, s: &str) -> RedisString {
         let str_inner = raw::create_string(ctx, format!("{}\0", s).as_ptr(), s.len());
         RedisString { ctx, str_inner }
+    }
+
+    fn create_zstd(ctx: *mut raw::RedisModuleCtx, s: &str) -> RedisString {
+        let str_inner = raw::create_zstd_compress_str(ctx, format!("{}\0", s).as_ptr(), s.len(), 3);
+        RedisString { ctx, str_inner}
     }
 }
 
@@ -457,6 +468,14 @@ fn read_key(key: *mut raw::RedisModuleKey) -> Result<String, string::FromUtf8Err
     let mut length: size_t = 0;
     from_byte_string(
         raw::string_dma(key, &mut length, raw::KeyMode::READ),
+        length,
+    )
+}
+
+fn read_key_zstd(key: *mut raw::RedisModuleKey) -> Result<String, string::FromUtf8Error> {
+    let mut length: size_t = 0;
+    from_byte_string(
+        raw::string_dma_zstd_decompress_str(key, &mut length, raw::KeyMode::READ),
         length,
     )
 }

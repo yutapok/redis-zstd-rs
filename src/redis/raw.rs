@@ -119,6 +119,24 @@ pub fn create_string(
     unsafe { RedisModule_CreateString(ctx, ptr, len) }
 }
 
+pub fn create_zstd_compress_str(
+    ctx: *mut RedisModuleCtx,
+    src: *const u8,
+    len: size_t,
+    clevel: c_int,
+) -> *mut RedisModuleString {
+    unsafe { Custom_RedisModule_ZstdCompressStr(ctx, src, len, clevel) }
+}
+
+
+pub fn string_dma_zstd_decompress_str(
+    key: *mut RedisModuleKey,
+    len: *mut size_t,
+    mode: KeyMode,
+) -> *const u8 {
+    unsafe { Custom_RedisModule_StringDMAZstdDecompress(key, len, mode) }
+}
+
 pub fn free_string(ctx: *mut RedisModuleCtx, str: *mut RedisModuleString) {
     unsafe { RedisModule_FreeString(ctx, str) }
 }
@@ -181,9 +199,9 @@ pub fn string_set(key: *mut RedisModuleKey, str: *mut RedisModuleString) -> Stat
     unsafe { RedisModule_StringSet(key, str) }
 }
 
-pub fn string_zstd_set(ctx: *mut RedisModuleCtx, key: *mut RedisModuleKey, ptr: *const u8) -> Status {
-    unsafe { Custom_RedisModule_ZstdStringSet(ctx, key ,ptr) }
-}
+//pub fn string_zstd_set(ctx: *mut RedisModuleCtx, key: *mut RedisModuleKey, ptr: *const u8) -> Status {
+//    unsafe { Custom_RedisModule_ZstdStringSet(ctx, key ,ptr) }
+//}
 
 // Redis doesn't make this easy for us by exporting a library, so instead what
 // we do is bake redismodule.h's symbols into a library of our construction
@@ -276,18 +294,25 @@ extern "C" {
 
 }
 
-//custom module
 #[allow(improper_ctypes)]
-#[link(name = "rmod_custom",kind = "static")]
+#[link(name = "custom",kind = "static")]
 extern "C" {
     //Costom RedisModule
-    pub fn Custom_RedisModule_ZstdStringSet(
-        ctx: *mut RedisModuleCtx, 
-        key: *mut RedisModuleKey, 
-        str: *const u8
-    ) -> Status;
-}
+    pub fn Custom_RedisModule_ZstdCompressStr(
+        ctx: *mut RedisModuleCtx,
+        src: *const u8,
+        len: size_t,
+        clevel: c_int,
+    ) -> *mut RedisModuleString;
 
+    //Costom RedisModule
+    pub fn Custom_RedisModule_StringDMAZstdDecompress(
+        key: *mut RedisModuleKey,
+        len: *mut size_t,
+        mode: KeyMode,
+    ) -> *const u8; 
+
+}
 
 pub mod call1 {
     use redis::raw;

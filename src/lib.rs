@@ -12,9 +12,13 @@ mod redis;
 
 use std::str;
 use error::CellError;
-use libc::c_int;
 use redis::Command;
 use redis::raw;
+use libc::{c_int, c_long, c_longlong, size_t};
+use std::error::Error;
+use std::iter;
+use std::ptr;
+use std::string;
 
 const MODULE_NAME: &str = "redis-cell";
 const MODULE_VERSION: c_int = 1;
@@ -38,6 +42,8 @@ impl Command for ZstdGetCommand {
         }
 
         let key = args[1];
+        let restr = r.open_key(&key).read_zstd_decompress_str().unwrap().unwrap();
+        r.reply_string(&restr);
 
         Ok(())
     }
@@ -65,7 +71,7 @@ impl Command for ZstdSetCommand {
         let key = args[1];
         let val = args[2];
 
-        r.open_key_writable(key).write_zstd_comp(val).unwrap();
+        r.open_key_writable(key).write_zstd_comp(&val).unwrap();
         r.reply_string(&val);
 
         Ok(())
@@ -145,4 +151,3 @@ pub extern "C" fn RedisModule_OnLoad(
 
     raw::Status::Ok
 }
-
